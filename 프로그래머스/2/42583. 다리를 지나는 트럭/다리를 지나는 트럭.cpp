@@ -16,13 +16,11 @@ int solution(int bridge_length, int weight, vector<int> truck_weights) {
         sec++;
         
         if(sec >= q.front().second+bridge_length){
-            cout << q.front().first << " out of bridge at " <<  sec << "\n";
             bw -= q.front().first;
             q.pop();
         }
         if(num >= truck_weights.size() || bw+truck_weights[num]>weight) continue;
         else {
-            cout << truck_weights[num] << " enter in bridge at " <<  sec << "\n";
             q.push({truck_weights[num], sec});
             bw += truck_weights[num];
             num++;
