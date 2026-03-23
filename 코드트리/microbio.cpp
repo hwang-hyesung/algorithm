@@ -1,275 +1,214 @@
-#include <iostream>
-#include <cstring>
-#include <cmath>
-#include <vector>
-#include <set>
-#include <queue>
-#include <algorithm>
+#include <bits/stdc++.h>
 using namespace std;
 
-int n, q, arr[20][20], visited[20][20], temp[20][20], width[55][4];
-int dy[] = {-1, 1, 0, 0}, dx[] = {0, 0, -1, 1};
-set<int> adj;
-vector<pair<int, int>> w;
-
-bool cmp(const pair<int, int> &a, const pair<int, int> &b)
+int N, Q;
+int dy[] = {-1, 0, 1, 0}, dx[] = {0, -1, 0, 1};
+vector<vector<int>> board, nextBoard;
+map<int, int> width;
+struct Node
 {
-    if (a.second != b.second)
-        return a.second > b.second;
-    else
-        return a.first < b.first;
+    int idx, y, x, w;
+    vector<pair<int, int>> cells;
+};
+
+struct Cmp
+{
+    bool operator()(const Node &a, const Node &b) const
+    {
+        if (a.w != b.w)
+            return a.w < b.w;
+        return a.idx > b.idx;
+    }
+};
+
+Node bfsComponent(int sy, int sx, vector<vector<int>> &visited)
+{
+    queue<pair<int, int>> q;
+    q.push({sy, sx});
+    visited[sy][sx] = 1;
+
+    int val = board[sy][sx];
+    vector<pair<int, int>> cells;
+    cells.push_back({sy, sx});
+
+    int minY = sy, minX = sx;
+
+    while (!q.empty())
+    {
+        auto [y, x] = q.front();
+        q.pop();
+
+        if (y < minY || (y == minY && x < minX))
+        {
+            minY = y;
+            minX = x;
+        }
+
+        for (int d = 0; d < 4; d++)
+        {
+            int ny = y + dy[d];
+            int nx = x + dx[d];
+
+            if (ny < 0 || ny >= N || nx < 0 || nx >= N)
+                continue;
+            if (visited[ny][nx])
+                continue;
+            if (board[ny][nx] != val)
+                continue;
+
+            visited[ny][nx] = 1;
+            q.push({ny, nx});
+            cells.push_back({ny, nx});
+        }
+    }
+
+    Node res;
+    res.idx = val;
+    res.y = minY;
+    res.x = minX;
+    res.w = (int)cells.size();
+    res.cells = cells;
+    return res;
 }
 
-bool div_check(int i)
+priority_queue<Node, vector<Node>, Cmp> findSeparated()
 {
-    memset(visited, 0, sizeof(visited));
-    int cnt = 0;
-    int min_r = n, min_c = n, max_r = -1, max_c = -1;
-    for (int r = width[i][0]; r < width[i][2]; r++)
-    {
-        for (int c = width[i][1]; c < width[i][3]; c++)
-        {
-            if (arr[r][c] == i)
-            {
-                min_r = min(min_r, r);
-                min_c = min(min_c, c);
-                max_r = max(max_r, r);
-                max_c = max(max_c, c);
-                if (visited[r][c] != 0)
-                    continue;
-                cnt++;
-                visited[r][c] = 1;
-                queue<pair<int, int>> q;
-                int y = r;
-                int x = c;
-                q.push({y, x});
-                while (!q.empty())
-                {
-                    y = q.front().first;
-                    x = q.front().second;
-                    q.pop();
+    vector<vector<int>> visited(N, vector<int>(N, 0));
+    map<int, Node> remain;
+    set<int> removed;
 
-                    for (int d = 0; d < 4; d++)
-                    {
-                        int ny = y + dy[d];
-                        int nx = x + dx[d];
-                        if (ny < 0 || ny >= n || nx < 0 || nx >= n || visited[ny][nx] != 0 || arr[ny][nx] != i)
-                            continue;
-                        else
-                        {
-                            visited[ny][nx] = 1;
-                            q.push({ny, nx});
-                        }
-                    }
-                }
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            if (visited[i][j])
+                continue;
+            if (board[i][j] == 0)
+                continue;
+
+            Node comp = bfsComponent(i, j, visited);
+            int val = comp.idx;
+
+            if (removed.count(val))
+                continue;
+
+            if (remain.count(val))
+            {
+                remain.erase(val);
+                removed.insert(val);
+            }
+            else
+            {
+                remain[val] = comp;
             }
         }
     }
-    width[i][0] = min_r;
-    width[i][1] = min_c;
-    width[i][2] = max_r + 1;
-    width[i][3] = max_c + 1;
-    return cnt == 1;
+
+    priority_queue<Node, vector<Node>, Cmp> pq;
+    for (auto &p : remain)
+        pq.push(p.second);
+
+    return pq;
 }
 
-void discard()
+bool check(int y, int x, const Node &n)
 {
-    for (int i : adj)
+    for (auto &cell : n.cells)
     {
-        if (!div_check(i))
-        {
-            for (int r = width[i][0]; r < width[i][2]; r++)
-            {
-                for (int c = width[i][1]; c < width[i][3]; c++)
-                {
-                    if (arr[r][c] == i)
-                    {
-                        arr[r][c] = 0;
-                    }
-                }
-            }
-            width[i][0] = -1;
-            width[i][1] = -1;
-            width[i][2] = -1;
-            width[i][3] = -1;
-            w[i - 1].second = -1;
-        }
-    }
-}
+        int oy = cell.first - n.y;
+        int ox = cell.second - n.x;
 
-bool loc_check(int y, int x, int i)
-{
-    int r1 = width[i][0];
-    int c1 = width[i][1];
-    int r2 = width[i][2];
-    int c2 = width[i][3];
+        int ny = y + oy;
+        int nx = x + ox;
 
-    for (int r = r1; r < r2; r++)
-    {
-        for (int c = c1; c < c2; c++)
-        {
-            if (arr[r][c] == i)
-            {
-                int ny = y + r - r1;
-                int nx = x + c - c1;
-
-                if (ny < 0 || ny >= n || nx < 0 || nx >= n)
-                    return false;
-                if (temp[ny][nx] != 0)
-                    return false;
-            }
-        }
+        if (ny < 0 || ny >= N || nx < 0 || nx >= N)
+            return false;
+        if (nextBoard[ny][nx] != 0)
+            return false;
     }
     return true;
 }
 
-void move(int y, int x, int i)
+int moveMicrobe(int y, int x, const Node &n)
 {
-    int r1 = width[i][0];
-    int c1 = width[i][1];
-    int r2 = width[i][2];
-    int c2 = width[i][3];
-
-    for (int r = r1; r < r2; r++)
+    int score = 0;
+    set<int> adj;
+    for (auto &cell : n.cells)
     {
-        for (int c = c1; c < c2; c++)
-        {
-            if (arr[r][c] == i && temp[y + r - r1][x + c - c1] == 0)
-            {
-                temp[y + r - r1][x + c - c1] = i;
-            }
-        }
-    }
+        int oy = cell.first - n.y;
+        int ox = cell.second - n.x;
 
-    width[i][0] = y;
-    width[i][1] = x;
-    width[i][2] = y + r2 - r1;
-    width[i][3] = x + c2 - c1;
-}
+        int ny = y + oy;
+        int nx = x + ox;
 
-void relocate()
-{
-    vector<pair<int, int>> sw = w;
-    sort(sw.begin(), sw.end(), cmp);
-    memset(temp, 0, sizeof(temp));
+        nextBoard[ny][nx] = n.idx;
 
-    for (pair<int, int> &i : sw)
-    {
-        if (i.second == -1)
-            continue;
-        bool moved = false;
-        for (int r = 0; r < n; r++)
+        for (int i = 0; i < 4; i++)
         {
-            for (int c = 0; c < n; c++)
-            {
-                if (moved)
-                    break;
-                if (loc_check(r, c, i.first))
-                {
-                    move(r, c, i.first);
-                    moved = true;
-                }
-            }
-            if (moved)
-                break;
-        }
-        if (!moved)
-        {
-            i.second = -1;
-            width[i.first][0] = -1;
-            width[i.first][1] = -1;
-            width[i.first][2] = -1;
-            width[i.first][3] = -1;
-        }
-    }
-
-    for (int y = 0; y < n; y++)
-    {
-        for (int x = 0; x < n; x++)
-        {
-            arr[y][x] = temp[y][x];
-        }
-    }
-}
-int cal()
-{
-    int cnt = 0;
-    int aadj[55][55] = {0};
-
-    for (int r = 0; r < n; r++)
-    {
-        for (int c = 0; c < n; c++)
-        {
-            int a = arr[r][c];
-            if (a == 0 || w[a - 1].second == -1)
+            int ay = ny + dy[i];
+            int ax = nx + dx[i];
+            if (ay < 0 || ay >= N || ax < 0 || ax >= N || nextBoard[ay][ax] == 0 || nextBoard[ay][ax] == n.idx)
                 continue;
-
-            for (int d = 0; d < 4; d++)
-            {
-                int ny = r + dy[d];
-                int nx = c + dx[d];
-                if (ny < 0 || ny >= n || nx < 0 || nx >= n)
-                    continue;
-
-                int b = arr[ny][nx];
-                if (b == 0 || a == b || w[b - 1].second == -1)
-                    continue;
-
-                if (aadj[a][b] == 0 && aadj[b][a] == 0)
-                {
-                    cnt += w[a - 1].second * w[b - 1].second;
-                    aadj[a][b] = aadj[b][a] = 1;
-                }
-            }
+            adj.insert(nextBoard[ay][ax]);
         }
     }
-
-    return cnt;
+    for (int aidx : adj)
+    {
+        score += n.w * width[aidx];
+    }
+    width[n.idx] = n.w;
+    return score;
 }
 
 int main()
 {
-    cin >> n >> q;
-    memset(arr, 0, sizeof(arr));
-    for (int i = 1; i <= q; i++)
-    {
-        adj.clear();
-        w.push_back({i, 0});
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
 
-        cin >> width[i][0] >> width[i][1] >> width[i][2] >> width[i][3];
-        for (int r = width[i][0]; r < width[i][2]; r++)
+    cin >> N >> Q;
+    board.assign(N, vector<int>(N, 0));
+    nextBoard.assign(N, vector<int>(N, 0));
+
+    for (int q = 1; q <= Q; q++)
+    {
+        int r1, c1, r2, c2;
+        cin >> r1 >> c1 >> r2 >> c2;
+
+        for (int i = r1; i < r2; i++)
+            for (int j = c1; j < c2; j++)
+                board[i][j] = q;
+
+        nextBoard.assign(N, vector<int>(N, 0));
+        width.clear();
+
+        auto pq = findSeparated();
+        int score = 0;
+
+        while (!pq.empty())
         {
-            for (int c = width[i][1]; c < width[i][3]; c++)
+            Node n = pq.top();
+            pq.pop();
+
+            bool placed = false;
+
+            for (int y = 0; y < N && !placed; y++)
             {
-                if (arr[r][c] != 0)
+                for (int x = 0; x < N; x++)
                 {
-                    adj.insert(arr[r][c]);
-                    w[arr[r][c] - 1].second--;
+                    if (!check(y, x, n))
+                        continue;
+
+                    score += moveMicrobe(y, x, n);
+                    placed = true;
+                    break;
                 }
-                arr[r][c] = i;
-                w[i - 1].second++;
             }
         }
 
-        // 나눠지면 버리기
-        discard();
+        board = nextBoard;
 
-        // 재배치
-        relocate();
-
-        // cout << "\n"
-        //      << i << ": \n";
-        // for (int r = 0; r < n; r++)
-        // {
-        //     for (int c = 0; c < n; c++)
-        //     {
-        //         cout << arr[r][c] << " ";
-        //     }
-        //     cout << "\n";
-        // }
-        // cout << "\n";
-
-        // 결과 기록
-        cout << cal() << "\n";
+        cout << score << '\n';
     }
+
+    return 0;
 }
