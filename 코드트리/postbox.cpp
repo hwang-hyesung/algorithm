@@ -1,195 +1,149 @@
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include <map>
-#include <set>
+
 using namespace std;
 
 struct Box
 {
-    int k, w, h, c, r;
+    int id, r, c, h, w;
 };
 
-int n, m;
-vector<vector<int>> truck(50, vector<int>(50, 0));
-vector<int> height(50, 0);
-map<int, Box> box;
+int N, M;
+int arr[55][55];
+map<int, Box> bmap;
 
-void placeBox(Box &b)
+int moveDown(int id)
 {
-    int maxH = 0;
-    for (int j = b.c; j < b.c + b.w; j++)
-        maxH = max(maxH, height[j]);
+    Box &b = bmap[id];
+    int dist = 0;
 
-    b.r = maxH;
-    box[b.k] = b;
-    for (int r = b.r; r < b.r + b.h; r++)
+    while (true)
     {
-        for (int c = b.c; c < b.c + b.w; c++)
-        {
-            truck[r][c] = b.k;
-        }
-    }
+        int nr = b.r - 1;
+        if (nr < 0)
+            break;
 
-    for (int j = b.c; j < b.c + b.w; j++)
-        height[j] = b.r + b.h;
+        bool canGo = true;
+        for (int x = b.c; x < b.c + b.w; x++)
+        {
+            if (arr[nr][x] != 0)
+            {
+                canGo = false;
+                break;
+            }
+        }
+        if (!canGo)
+            break;
+
+        for (int x = b.c; x < b.c + b.w; x++)
+        {
+            arr[b.r + b.h - 1][x] = 0;
+            arr[nr][x] = id;
+        }
+        b.r--;
+        dist++;
+    }
+    return dist;
 }
 
-bool canRemove(int bidx, bool side)
+void applyGravity()
 {
-    Box &b = box[bidx];
-
-    for (int r = b.r; r < b.r + b.h; r++)
+    while (true)
     {
-        if (side)
+        bool changed = false;
+        vector<Box> sorted;
+        for (auto const &[id, b] : bmap)
+            sorted.push_back(b);
+
+        sort(sorted.begin(), sorted.end(), [](const Box &a, const Box &b)
+             { return a.r < b.r; });
+
+        for (auto &sb : sorted)
         {
-            for (int c = b.c - 1; c >= 0; c--)
-            {
-                if (truck[r][c] != 0)
-                    return false; // 옆에 장애물이 있음
-            }
+            if (moveDown(sb.id) > 0)
+                changed = true;
+        }
+        if (!changed)
+            break;
+    }
+}
+
+bool canUnload(int id, int side)
+{
+    Box &b = bmap[id];
+    for (int y = b.r; y < b.r + b.h; y++)
+    {
+        if (side == 0)
+        {
+            for (int x = 0; x < b.c; x++)
+                if (arr[y][x] != 0)
+                    return false;
         }
         else
         {
-            for (int c = b.c + b.w; c < n; c++)
-            {
-                if (truck[r][c] != 0)
+            for (int x = b.c + b.w; x < N; x++)
+                if (arr[y][x] != 0)
                     return false;
-            }
         }
     }
-
     return true;
-}
-
-int checkFall(Box &b)
-{
-    int cnt = n;
-    for (int c = b.c; c < b.c + b.w; c++)
-    {
-        int r = b.r - 1;
-        int fall = 0;
-        while (r >= 0 && truck[r][c] == 0)
-        {
-            fall++;
-            r--;
-        }
-        cnt = min(cnt, fall);
-    }
-    return cnt;
-}
-
-set<int> fall(Box &b, int dist)
-{
-    set<int> affected;
-
-    if (dist == 0)
-        return affected;
-
-    for (int r = b.r; r < b.r + b.h; r++)
-        for (int c = b.c; c < b.c + b.w; c++)
-            truck[r][c] = 0;
-
-    b.r -= dist;
-    box[b.k] = b;
-
-    for (int r = b.r; r < b.r + b.h; r++)
-        for (int c = b.c; c < b.c + b.w; c++)
-            truck[r][c] = b.k;
-
-    int topRow = b.r + b.h + dist;
-    if (topRow < n)
-    {
-        for (int c = b.c; c < b.c + b.w; c++)
-        {
-            if (truck[topRow][c] != 0)
-                affected.insert(truck[topRow][c]);
-        }
-    }
-
-    return affected;
-}
-
-void removeBox(bool side)
-{
-    int rbox = -1;
-    set<int> next;
-
-    for (int i = n - 1; i >= 0; i--)
-    {
-        int col = side ? 0 : n - 1;
-        while (col >= 0 && col < n)
-        {
-            if (truck[i][col] != 0)
-            {
-                if (canRemove(truck[i][col], side) && (rbox == -1 || truck[i][col] < rbox))
-                    rbox = truck[i][col];
-                break;
-            }
-            col = side ? col + 1 : col - 1;
-        }
-    }
-
-    if (rbox == -1)
-        return;
-
-    Box &b = box[rbox];
-
-    for (int r = b.r; r < b.r + b.h; r++)
-        for (int c = b.c; c < b.c + b.w; c++)
-            truck[r][c] = 0;
-
-    cout << rbox << "\n";
-
-    for (int c = b.c; c < b.c + b.w; c++)
-    {
-        int aboveR = b.r + b.h;
-        if (aboveR < n && truck[aboveR][c] != 0)
-            next.insert(truck[aboveR][c]);
-    }
-
-    while (!next.empty())
-    {
-        int id = *next.begin();
-        next.erase(next.begin());
-
-        Box &nb = box[id];
-        int cnt = checkFall(nb);
-        set<int> newFallen = fall(nb, cnt);
-        next.insert(newFallen.begin(), newFallen.end());
-    }
 }
 
 int main()
 {
     ios::sync_with_stdio(false);
-    cin.tie(nullptr);
+    cin.tie(NULL);
 
-    cin >> n >> m;
-    for (int i = 0; i < m; i++)
+    cin >> N >> M;
+
+    for (int i = 0; i < M; i++)
     {
-        Box b;
-        cin >> b.k >> b.h >> b.w >> b.c;
-        b.c--;
-        placeBox(b);
+        int k, h, w, c;
+        cin >> k >> h >> w >> c;
+        c--;
+
+        int startR = N - h;
+        bmap[k] = {k, startR, c, h, w};
+        for (int y = startR; y < startR + h; y++)
+        {
+            for (int x = c; x < c + w; x++)
+                arr[y][x] = k;
+        }
+
+        applyGravity();
     }
 
-    // for (int i = 0; i < n; i++)
-    // {
-    //     for (int j = 0; j < n; j++)
-    //         cout << truck[i][j] << " ";
-    //     cout << "\n";
-    // }
-
-    for (int i = 0; i < m; i++)
+    for (int i = 0; i < M; i++)
     {
-        removeBox(i % 2 == 0);
+        int side = i % 2;
+        int targetId = -1;
 
-        // for (int i = 0; i < n; i++)
-        // {
-        //     for (int j = 0; j < n; j++)
-        //         cout << truck[i][j] << " ";
-        //     cout << "\n";
-        // }
+        for (auto const &[id, b] : bmap)
+        {
+            if (canUnload(id, side))
+            {
+                if (targetId == -1 || id < targetId)
+                    targetId = id;
+            }
+        }
+
+        if (targetId != -1)
+        {
+            cout << targetId << "\n";
+
+            Box &b = bmap[targetId];
+            for (int y = b.r; y < b.r + b.h; y++)
+            {
+                for (int x = b.c; x < b.c + b.w; x++)
+                    arr[y][x] = 0;
+            }
+            bmap.erase(targetId);
+
+            applyGravity();
+        }
     }
+
     return 0;
 }
