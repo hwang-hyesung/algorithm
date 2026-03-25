@@ -1,123 +1,169 @@
-#include <iostream>
-#include <algorithm>
-#include <cmath>
-#include <cstring>
-#include <queue>
+#include <bits/stdc++.h>
 using namespace std;
 
-int r, c, k, a[74][74], score = 0;
-int dy[] = {-1, 0, 1, 0}, dx[] = {0, 1, 0, -1}; // 상 우 하 좌, 북동남서;
+int R, C, K;
+int dy[] = {-1, 0, 1, 0}, dx[] = {0, 1, 0, -1};
+vector<vector<int>> forest;
 
-bool check(int y, int x)
+pair<int, int> move(int idx, int c, int d)
 {
-    if (y < 0 || x < 0 || y >= r + 3 || x >= c || a[y][x] != 0)
+    int y = 2, x = c;
+    int ry = -1, rx = -1;
+    while (y <= R + 3)
     {
-        return false;
-    }
-    for (int i = 0; i < 4; i++)
-    {
-        int ny = y + dy[i];
-        int nx = x + dx[i];
-        if (ny < 0 || nx < 0 || ny >= r + 3 || nx >= c || a[ny][nx] != 0)
+        bool goDown = true;
+        for (int dir = 1; dir < 4; dir++)
         {
-            return false;
-        }
-    }
-    return true;
-}
-
-int bfs(int y, int x)
-{
-    int visited[74][74];
-    int maxcol = y;
-    queue<pair<int, int>> q;
-    q.push(make_pair(y, x));
-    memset(visited, 0, sizeof(visited));
-    bool flag = true;
-    while (!q.empty())
-    {
-        int y = q.front().first;
-        int x = q.front().second;
-        visited[y][x] = 1;
-        q.pop();
-        for (int i = 0; i < 4; i++)
-        {
-            int ny = y + dy[i];
-            int nx = x + dx[i];
-            if (ny < 0 || nx < 0 || ny >= r + 3 || nx >= c || a[ny][nx] == 0 || visited[ny][nx] != 0)
-                continue;
-            if (a[y][x] == -1 * a[ny][nx] || a[y][x] == a[ny][nx] || a[y][x] < 0)
+            int ny = y + dy[dir], nx = x + dx[dir];
+            if (ny < 0 || ny >= R + 3 || nx < 0 || nx >= C || forest[ny][nx] != 0)
             {
-                q.push(make_pair(ny, nx));
-                visited[ny][nx] = 1;
-                maxcol = max(ny, maxcol);
-            }
-        }
-    }
-    return maxcol - 2;
-}
-
-int main()
-{
-    cin >> r >> c >> k;
-    memset(a, 0, sizeof(a));
-    for (int i = 1; i <= k; i++)
-    {
-        int col, d;
-        cin >> col >> d;
-        col--;
-
-        int y = 0;
-        int x = col;
-        while (1)
-        { // 숲 경계도 확인해야할듯 -> check 함수
-            if (check(y + 1, x))
-            { // 남
-                y++;
-            }
-            else if (check(y + 1, x - 1) && check(y, x - 1))
-            { // 서남
-                d = (d + 3) % 4;
-                y++;
-                x--;
-            }
-            else if (check(y + 1, x + 1) && check(y, x + 1))
-            { // 동남
-                d = (d + 1) % 4;
-                y++;
-                x++;
-            }
-            else
-            {
+                goDown = false;
                 break;
             }
         }
 
-        if (y > 3)
+        if (goDown)
         {
-            a[y][x] = i;
-            for (int z = 0; z < 4; z++)
-            {
-                if (d == z)
-                    a[y + dy[z]][x + dx[z]] = -i;
-                else
-                    a[y + dy[z]][x + dx[z]] = i;
-            }
-            score += bfs(y, x);
-            // cout << score << "\n";
-            // for(int z=2;z<r+3;z++){
-            //     for(int x=0;x<c;x++){
-            //         cout << a[z][x] << " ";
-            //     }
-            //     cout << "\n";
-            // }
-            // cout << "\n";
+            y++;
+            continue;
         }
-        else
+
+        bool goWest = true;
+        for (int dir = 0; dir < 4; dir++)
         {
-            memset(a, 0, sizeof(a));
+            if (dir == 1)
+                continue;
+            int ny = y - 1 + dy[dir], nx = x - 1 + dx[dir];
+            if (ny < 0 || ny >= R + 3 || nx < 0 || nx >= C || forest[ny][nx] != 0)
+            {
+                goWest = false;
+                break;
+            }
+        }
+
+        if (goWest)
+        {
+            for (int dir = 1; dir < 4; dir++)
+            {
+                int ny = y + dy[dir], nx = x - 1 + dx[dir];
+                if (ny < 0 || ny >= R + 3 || nx < 0 || nx >= C || forest[ny][nx] != 0)
+                {
+                    goWest = false;
+                    break;
+                }
+            }
+        }
+
+        if (goWest)
+        {
+            y++;
+            x--;
+            d = (d + 3) % 4;
+            continue;
+        }
+
+        bool goEast = true;
+        for (int dir = 0; dir < 3; dir++)
+        {
+            int ny = y - 1 + dy[dir], nx = x + 1 + dx[dir];
+            if (ny < 0 || ny >= R + 3 || nx < 0 || nx >= C || forest[ny][nx] != 0)
+            {
+                goEast = false;
+                break;
+            }
+        }
+
+        if (goEast)
+        {
+            for (int dir = 1; dir < 4; dir++)
+            {
+                int ny = y + dy[dir], nx = x + 1 + dx[dir];
+                if (ny < 0 || ny >= R + 3 || nx < 0 || nx >= C || forest[ny][nx] != 0)
+                {
+                    goEast = false;
+                    break;
+                }
+            }
+        }
+
+        if (goEast)
+        {
+            y++;
+            x++;
+            d = (d + 1) % 4;
+            continue;
+        }
+
+        ry = y - 1;
+        rx = x;
+        break;
+    }
+
+    if (ry < 4)
+        return {-1, -1};
+
+    forest[ry][rx] = idx;
+    forest[ry - 1][rx] = idx;
+    forest[ry + 1][rx] = idx;
+    forest[ry][rx - 1] = idx;
+    forest[ry][rx + 1] = idx;
+
+    forest[ry + dy[d]][rx + dx[d]] = -1 * idx;
+    return {ry, rx};
+}
+
+int escape(int y, int x)
+{
+    int res_row = y;
+    vector<vector<bool>> visited(R + 3, vector<bool>(C, false));
+    queue<pair<int, int>> q;
+    q.push({y, x});
+    visited[y][x] = true;
+
+    while (!q.empty())
+    {
+        int y = q.front().first;
+        int x = q.front().second;
+        q.pop();
+
+        for (int dir = 0; dir < 4; dir++)
+        {
+            int ny = y + dy[dir], nx = x + dx[dir];
+            if (ny < 0 || ny >= R + 3 || nx < 0 || nx >= C || visited[ny][nx])
+                continue;
+            if (forest[ny][nx] == 0)
+                continue;
+            if (forest[ny][nx] != forest[y][x] && (forest[y][x] > 0 && ((forest[ny][nx] != -1 * forest[y][x]) || forest[ny][nx] > 0)))
+                continue;
+            q.push({ny, nx});
+            visited[ny][nx] = true;
+            res_row = max(res_row, ny);
         }
     }
+    return res_row - 2;
+}
+
+int main()
+{
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int score = 0;
+    cin >> R >> C >> K;
+    forest.resize(R + 3, vector<int>(C, 0));
+    for (int idx = 1; idx <= K; idx++)
+    {
+        int c, d;
+        cin >> c >> d;
+        c--;
+        pair<int, int> loc = move(idx, c, d);
+        if (loc.first == -1)
+        {
+            forest.assign(R + 3, vector<int>(C, 0));
+            continue;
+        }
+        score += escape(loc.first, loc.second);
+        }
     cout << score;
     return 0;
 }
